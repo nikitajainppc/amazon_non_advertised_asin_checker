@@ -45,7 +45,6 @@ if page == "📘 Instructions":
 elif page == "📤 Upload & Analyze":
     st.title("📤 Upload Your Files to Find Non-Advertised ASINs")
 
-    # Function to read file
     def read_file(file):
         try:
             if file.name.endswith('.csv'):
@@ -61,6 +60,21 @@ elif page == "📤 Upload & Analyze":
             st.error(f"Failed to read file: {e}")
             return None
 
+    def find_asin_column(df, source='active'):
+        # Try exact matches first (case-sensitive)
+        candidates = ['ASIN', 'asin', 'ASIN1', 'Advertised ASIN']
+        for col in df.columns:
+            if col in candidates:
+                if source == 'active' and col.lower().startswith('asin'):
+                    return col
+                if source == 'ads' and 'Advertised ASIN' in col:
+                    return col
+        # Try case-insensitive fallback
+        for col in df.columns:
+            if 'asin' in col.lower():
+                return col
+        return None
+
     # Upload files
     active_file = st.file_uploader("📤 Upload Active ASINs file", type=['csv', 'xlsx', 'tsv'])
     ads_file = st.file_uploader("📤 Upload Advertised ASINs file", type=['csv', 'xlsx', 'tsv'])
@@ -70,36 +84,30 @@ elif page == "📤 Upload & Analyze":
         df_ads = read_file(ads_file)
 
         if df_active is not None and df_ads is not None:
-            # Try to find ASIN column (case-insensitive)
-            def find_asin_column(df):
-                for col in df.columns:
-                    if 'asin' in col.lower():
-                        return col
-                return None
-
-            active_col = find_asin_column(df_active)
-            ads_col = find_asin_column(df_ads)
+            active_col = find_asin_column(df_active, source='active')
+            ads_col = find_asin_column(df_ads, source='ads')
 
             if not active_col or not ads_col:
-                st.error("Could not find ASIN column in one of the files. Please make sure at least one column is named 'ASIN'.")
+                st.error("ASIN column not found. Please ensure your files have 'ASIN', 'ASIN1', or 'Advertised ASIN'.")
             else:
-                active_asins = df_active[active_col].dropna().drop_duplicates().astype(str).str.upper().str.strip()
+                active_asins = df_active[active_col].dropna().astype(str).str.upper().str.strip()
                 advertised_asins = df_ads[ads_col].dropna().astype(str).str.upper().str.strip()
 
+                # Final filtering (with duplicates allowed in both)
                 non_advertised_asins = active_asins[~active_asins.isin(advertised_asins)].reset_index(drop=True)
                 non_advertised_df = pd.DataFrame(non_advertised_asins, columns=["Non-Advertised ASINs"])
                 non_advertised_df.index = non_advertised_df.index + 1
 
-                st.success(f"Found {len(non_advertised_df)} non-advertised ASIN(s).")
+                st.success(f"✅ Found {len(non_advertised_df)} non-advertised ASIN(s).")
                 st.dataframe(non_advertised_df, use_container_width=True)
 
-                # Download link
+                # Download
                 csv = non_advertised_df.to_csv(index=False).encode('utf-8')
                 st.download_button(
-                    "📥 Download Non-Advertised ASINs CSV",
-                    csv,
-                    "non_advertised_asins.csv",
-                    "text/csv"
+                    label="📥 Download Non-Advertised ASINs CSV",
+                    data=csv,
+                    file_name="non_advertised_asins.csv",
+                    mime="text/csv"
                 )
 
     st.markdown("---")
