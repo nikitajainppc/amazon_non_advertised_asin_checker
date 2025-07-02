@@ -61,7 +61,7 @@ elif page == "📤 Upload & Analyze":
             st.error(f"Failed to read file: {e}")
             return None
 
-    # File uploaders
+    # Upload files
     active_file = st.file_uploader("📤 Upload Active ASINs file", type=['csv', 'xlsx', 'tsv'])
     ads_file = st.file_uploader("📤 Upload Advertised ASINs file", type=['csv', 'xlsx', 'tsv'])
 
@@ -70,7 +70,7 @@ elif page == "📤 Upload & Analyze":
         df_ads = read_file(ads_file)
 
         if df_active is not None and df_ads is not None:
-            # Find the ASIN column automatically
+            # Try to find ASIN column (case-insensitive)
             def find_asin_column(df):
                 for col in df.columns:
                     if 'asin' in col.lower():
@@ -81,27 +81,25 @@ elif page == "📤 Upload & Analyze":
             ads_col = find_asin_column(df_ads)
 
             if not active_col or not ads_col:
-                st.error("Could not find an 'ASIN' column in one of the files. Please check your uploads.")
+                st.error("Could not find ASIN column in one of the files. Please make sure at least one column is named 'ASIN'.")
             else:
-                # Standardize ASIN format (case + spacing)
                 active_asins = df_active[active_col].dropna().drop_duplicates().astype(str).str.upper().str.strip()
                 advertised_asins = df_ads[ads_col].dropna().astype(str).str.upper().str.strip()
 
-                # Find ASINs in active list that are not advertised
                 non_advertised_asins = active_asins[~active_asins.isin(advertised_asins)].reset_index(drop=True)
                 non_advertised_df = pd.DataFrame(non_advertised_asins, columns=["Non-Advertised ASINs"])
-                non_advertised_df.index = non_advertised_df.index + 1  # Start index from 1
+                non_advertised_df.index = non_advertised_df.index + 1
 
-                st.success(f"✅ Found {len(non_advertised_df)} non-advertised ASIN(s).")
+                st.success(f"Found {len(non_advertised_df)} non-advertised ASIN(s).")
                 st.dataframe(non_advertised_df, use_container_width=True)
 
-                # Download as CSV
+                # Download link
                 csv = non_advertised_df.to_csv(index=False).encode('utf-8')
                 st.download_button(
-                    label="📥 Download Non-Advertised ASINs CSV",
-                    data=csv,
-                    file_name="non_advertised_asins.csv",
-                    mime="text/csv"
+                    "📥 Download Non-Advertised ASINs CSV",
+                    csv,
+                    "non_advertised_asins.csv",
+                    "text/csv"
                 )
 
     st.markdown("---")
