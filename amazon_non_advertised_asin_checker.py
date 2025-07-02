@@ -24,24 +24,18 @@ if page == "📘 Instructions":
     - From the drop-down, select: **“Active Listings Report”**
     - Click **“Request Report”** and download the CSV
 
-    This file contains all ASINs you're currently selling.
-
     #### 🟢 Step 2: Export a List of ASINs Being Advertised
-    - Go to: **Advertising Console** → **Campaign Manager**
+    - Go to: **Advertising Console > Campaign Manager**
     - Select **Sponsored Products**
-    - Download a **Campaign Performance Report**:
-        - Go to **Reports > Campaign Reports**
-        - Choose **Sponsored Products**
-        - Select either **Targeting Report** or **Advertised Products Report**
-        - Pick a relevant date range (e.g., last 30 days)
-        - Download the file
-
-    This report includes ASINs you're currently advertising.
+    - Go to **Reports > Campaign Reports**
+    - Select **Targeting Report** or **Advertised Products Report**
+    - Choose a date range (e.g., last 30 days)
+    - Generate and download the report
 
     ---
 
-    ### ✅ Upload both files on the next tab
-    Just upload your **Active Listings** and **Advertised ASINs** files, and we’ll instantly show you the ASINs that are **not being advertised**.
+    ### ✅ What to do next
+    Upload both files on the next tab, and the app will instantly show you which ASINs are **not being advertised**.
     """)
 
     st.markdown("---")
@@ -51,6 +45,7 @@ if page == "📘 Instructions":
 elif page == "📤 Upload & Analyze":
     st.title("📤 Upload Your Files to Find Non-Advertised ASINs")
 
+    # Function to read file
     def read_file(file):
         try:
             if file.name.endswith('.csv'):
@@ -66,7 +61,7 @@ elif page == "📤 Upload & Analyze":
             st.error(f"Failed to read file: {e}")
             return None
 
-    # Upload files
+    # File uploaders
     active_file = st.file_uploader("📤 Upload Active ASINs file", type=['csv', 'xlsx', 'tsv'])
     ads_file = st.file_uploader("📤 Upload Advertised ASINs file", type=['csv', 'xlsx', 'tsv'])
 
@@ -75,7 +70,7 @@ elif page == "📤 Upload & Analyze":
         df_ads = read_file(ads_file)
 
         if df_active is not None and df_ads is not None:
-            # Detect ASIN columns
+            # Find the ASIN column automatically
             def find_asin_column(df):
                 for col in df.columns:
                     if 'asin' in col.lower():
@@ -88,17 +83,19 @@ elif page == "📤 Upload & Analyze":
             if not active_col or not ads_col:
                 st.error("Could not find an 'ASIN' column in one of the files. Please check your uploads.")
             else:
-                active_asins = df_active[active_col].dropna().drop_duplicates().astype(str).str.strip()
-                advertised_asins = df_ads[ads_col].dropna().astype(str).str.strip()
+                # Standardize ASIN format (case + spacing)
+                active_asins = df_active[active_col].dropna().drop_duplicates().astype(str).str.upper().str.strip()
+                advertised_asins = df_ads[ads_col].dropna().astype(str).str.upper().str.strip()
 
+                # Find ASINs in active list that are not advertised
                 non_advertised_asins = active_asins[~active_asins.isin(advertised_asins)].reset_index(drop=True)
                 non_advertised_df = pd.DataFrame(non_advertised_asins, columns=["Non-Advertised ASINs"])
                 non_advertised_df.index = non_advertised_df.index + 1  # Start index from 1
 
-                st.success(f"Found {len(non_advertised_df)} non-advertised ASIN(s).")
+                st.success(f"✅ Found {len(non_advertised_df)} non-advertised ASIN(s).")
                 st.dataframe(non_advertised_df, use_container_width=True)
 
-                # Download button
+                # Download as CSV
                 csv = non_advertised_df.to_csv(index=False).encode('utf-8')
                 st.download_button(
                     label="📥 Download Non-Advertised ASINs CSV",
@@ -108,4 +105,4 @@ elif page == "📤 Upload & Analyze":
                 )
 
     st.markdown("---")
-    st.caption("Non-Advertised ASIN Checker | Built for Amazon Sellers | Nikita Jain")
+    st.caption("© 2025 Non-Advertised ASIN Checker | Built for Amazon Sellers | Nikita Jain")
